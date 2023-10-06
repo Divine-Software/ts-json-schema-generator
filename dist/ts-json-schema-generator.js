@@ -28,7 +28,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const commander_1 = require("commander");
 const safe_stable_stringify_1 = __importDefault(require("safe-stable-stringify"));
-const typescript_1 = require("typescript");
 const generator_1 = require("./factory/generator");
 const Config_1 = require("./src/Config");
 const BaseError_1 = require("./src/Error/BaseError");
@@ -103,14 +102,11 @@ catch (error) {
 }
 function writeTypeMapFile(typeMaps, typeMapeFile) {
     const typeMapDir = (0, path_1.dirname)(typeMapeFile);
-    const typesSeen = new Set();
     let code = "";
     typeMaps.forEach((typeMap) => {
-        const fileName = (0, path_1.relative)(typeMapDir, typeMap.sourceFile.fileName);
-        const imported = typeMap.exports.filter((type) => !typesSeen.has(type));
-        imported.forEach((type) => typesSeen.add(type));
-        if ((0, typescript_1.isExternalModule)(typeMap.sourceFile)) {
-            code += `import type { ${imported.join(", ")} } from "./${fileName}";\n`;
+        const fileName = (0, path_1.relative)(typeMapDir, typeMap.fileName);
+        if (typeMap.exports) {
+            code += `import type { ${typeMap.exports.join(", ")} } from "./${fileName}";\n`;
         }
         else {
             code += `import "./${fileName}";\n`;

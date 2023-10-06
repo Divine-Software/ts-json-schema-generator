@@ -29,13 +29,9 @@ class SchemaGenerator {
         });
         const rootTypeDefinition = rootTypes.length === 1 ? this.getRootTypeDefinition(rootTypes[0]) : undefined;
         const definitions = {};
-        const typeMaps = rootTypes.map((rootType, i) => ({
-            sourceFile: rootNodes[i].getSourceFile(),
-            typeNames: this.appendRootChildDefinitions(rootType, definitions),
-            exports: [],
-        }));
+        const rootTypeNames = rootTypes.map((rootType) => this.appendRootChildDefinitions(rootType, definitions));
         const reachableDefinitions = (0, removeUnreachable_1.removeUnreachable)(rootTypeDefinition, definitions);
-        typeMapResult === null || typeMapResult === void 0 ? void 0 : typeMapResult.splice(0, Infinity, ...this.mergedTypeMaps(typeMaps, reachableDefinitions));
+        typeMapResult === null || typeMapResult === void 0 ? void 0 : typeMapResult.splice(0, Infinity, ...this.createTypeMaps(rootNodes, rootTypeNames, reachableDefinitions));
         return {
             ...(((_a = this.config) === null || _a === void 0 ? void 0 : _a.schemaId) ? { $id: this.config.schemaId } : {}),
             $schema: "http://json-schema.org/draft-07/schema#",
@@ -43,28 +39,28 @@ class SchemaGenerator {
             definitions: reachableDefinitions,
         };
     }
-    mergedTypeMaps(typeMaps, reachableDefinitions) {
-        var _a;
-        var _b;
-        const mergedTypeMaps = {};
-        for (const typeMap of typeMaps) {
-            const mergedTypeMap = ((_a = mergedTypeMaps[_b = typeMap.sourceFile.fileName]) !== null && _a !== void 0 ? _a : (mergedTypeMaps[_b] = {
-                sourceFile: typeMap.sourceFile,
+    createTypeMaps(rootNodes, rootTypeNames, reachableDefinitions) {
+        const typeMaps = {};
+        const typeSeen = new Set();
+        const nameSeen = new Set();
+        rootNodes.forEach((rootNode, i) => {
+            var _a, _b;
+            const sourceFile = rootNode.getSourceFile();
+            const fileName = sourceFile.fileName;
+            const typeMap = ((_a = typeMaps[fileName]) !== null && _a !== void 0 ? _a : (typeMaps[fileName] = {
+                fileName,
                 typeNames: [],
-                exports: [],
+                exports: typescript_1.default.isExternalModule(sourceFile) ? [] : undefined,
             }));
-            const typeNames = typeMap.typeNames.filter((tn) => !!reachableDefinitions[tn] && !tn.startsWith("NamedParameters<typeof "));
+            const typeNames = rootTypeNames[i].filter((typeName) => !!reachableDefinitions[typeName] && !typeName.startsWith("NamedParameters<typeof "));
             const exports = typeNames
-                .map((name) => name.replace(/[<.].*/g, ""))
-                .filter((type) => { var _a, _b; return (_b = (_a = (0, symbolAtNode_1.symbolAtNode)(typeMap.sourceFile)) === null || _a === void 0 ? void 0 : _a.exports) === null || _b === void 0 ? void 0 : _b.has(typescript_1.default.escapeLeadingUnderscores(type)); });
-            mergedTypeMap.typeNames.push(...typeNames);
-            mergedTypeMap.exports.push(...exports);
-        }
-        return Object.values(mergedTypeMaps).filter((typeMap) => {
-            typeMap.exports = [...new Set(typeMap.exports).values()];
-            typeMap.typeNames = [...new Set(typeMap.typeNames).values()];
-            return typeMap.exports.length || typeMap.typeNames.length;
+                .map((typeName) => typeName.replace(/[<.].*/g, ""))
+                .filter((type) => { var _a, _b; return (_b = (_a = (0, symbolAtNode_1.symbolAtNode)(sourceFile)) === null || _a === void 0 ? void 0 : _a.exports) === null || _b === void 0 ? void 0 : _b.has(typescript_1.default.escapeLeadingUnderscores(type)); })
+                .filter((type) => !typeSeen.has(type) && typeSeen.add(type));
+            typeMap.typeNames.push(...typeNames.filter((name) => !nameSeen.has(name) && nameSeen.add(name)));
+            (_b = typeMap.exports) === null || _b === void 0 ? void 0 : _b.push(...exports);
         });
+        return Object.values(typeMaps).filter((tm) => !tm.exports || tm.exports.length || tm.typeNames.length);
     }
     getRootNodes(fullName) {
         if (fullName && fullName !== "*") {
@@ -124,8 +120,8 @@ class SchemaGenerator {
             const name = child.getName();
             if (!(name in definitions)) {
                 definitions[name] = this.typeFormatter.getDefinition(child.getType());
-                names.push(name);
             }
+            names.push(name);
             return definitions;
         }, childDefinitions);
         return names;

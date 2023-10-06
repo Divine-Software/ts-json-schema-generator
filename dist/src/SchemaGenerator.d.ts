@@ -7,9 +7,9 @@ import { TypeFormatter } from "./TypeFormatter";
 import { StringMap } from "./Utils/StringMap";
 import { Config } from "./Config";
 export interface TypeMap {
-    sourceFile: ts.SourceFile;
+    fileName: string;
     typeNames: string[];
-    exports: string[];
+    exports?: string[];
 }
 export declare class SchemaGenerator {
     protected readonly program: ts.Program;
@@ -19,7 +19,7 @@ export declare class SchemaGenerator {
     constructor(program: ts.Program, nodeParser: NodeParser, typeFormatter: TypeFormatter, config?: Config | undefined);
     createSchema(fullName?: string, typeMapResult?: TypeMap[]): Schema;
     createSchemaFromNodes(rootNodes: ts.Node[], typeMapResult?: TypeMap[]): Schema;
-    protected mergedTypeMaps(typeMaps: TypeMap[], reachableDefinitions: StringMap<Definition>): TypeMap[];
+    protected createTypeMaps(rootNodes: ts.Node[], rootTypeNames: string[][], reachableDefinitions: StringMap<Definition>): TypeMap[];
     protected getRootNodes(fullName: string | undefined): ts.Node[];
     protected findNamedNode(fullName: string): ts.Node;
     protected getRootTypeDefinition(rootType: BaseType): Definition;
